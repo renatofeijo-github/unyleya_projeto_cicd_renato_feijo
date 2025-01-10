@@ -3,27 +3,47 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
 
 trigger:
-- main
+  - main
 
 resources:
-- repo: self
+  - repo: self
 
 variables:
-  tag: '$(Build.BuildId)'
+  ACR_NAME: 'acrregistry' # Substitua pelo nome do seu ACR
+  IMAGE_NAME: 'azure-vote' # Nome da aplicação/imagem
+  TAG: '$(Build.BuildId)' # Tag única para cada build
 
 stages:
-- stage: Build
-  displayName: Build image
-  jobs:
-  - job: Build
-    displayName: Build
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-    - task: Docker@2
-      displayName: Build an image
-      inputs:
-        command: build
-        dockerfile: '$(Build.SourcesDirectory)/azure-vote/Dockerfile'
-        tags: |
-          $(tag)
+  - stage: Build
+    displayName: 'Build and Push Docker Image'
+    jobs:
+      - job: BuildAndPush
+        displayName: 'Build and Push Docker Image to ACR'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          # Checkout do código do repositório
+          - task: Checkout@1
+            displayName: 'Checkout source code'
+
+          # Build da imagem Docker
+          - task: Docker@2
+            displayName: 'Build Docker Image'
+            inputs:
+              command: build
+              dockerfile: '$(Build.SourcesDirectory)/azure-vote/Dockerfile'
+              tags: |
+                $(IMAGE_NAME):$(TAG)
+
+          # Enviar imagem para o ACR
+          - script: |
+              echo "Logging into ACR..."
+              az acr login --name $(ACR_NAME)
+              
+              echo "Tagging Docker Image..."
+              docker tag $(IMAGE_NAME):$(TAG) $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(TAG)
+              
+              echo "Pushing Docker Image to ACR..."
+              docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(TAG)
+            displayName: 'Push Image to ACR'
+
