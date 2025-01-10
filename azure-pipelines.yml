@@ -47,3 +47,4 @@ stages:
               docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(TAG)
             displayName: 'Push Image to ACR'
 
+
