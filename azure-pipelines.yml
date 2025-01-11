@@ -9,7 +9,7 @@ resources:
   - repo: self
 
 variables:
-  ACR_NAME: 'acrregistry' # Substitua pelo nome do seu ACR
+  ACR_NAME: 'unyleyaregistry' # Substitua pelo nome do seu ACR
   IMAGE_NAME: 'azure-vote' # Nome da aplicação/imagem
   TAG: '$(Build.BuildId)' # Tag única para cada build
 
