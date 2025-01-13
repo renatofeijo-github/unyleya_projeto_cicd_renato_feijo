@@ -3,46 +3,54 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
 
 trigger:
-  - main
-
-resources:
-  - repo: self
+- main
 
 variables:
-  ACR_NAME: 'unyleyaregistry' # Substitua pelo nome do seu ACR
-  IMAGE_NAME: 'azure-vote' # Nome da aplicação/imagem
-  TAG: '$(Build.BuildId)' # Tag única para cada build
+  IMAGE_NAME: "unyleyaregistry.azurecr.io/azure-vote"
+  TAG: '$(Build.BuildId)'
+  FULL_IMAGE_NAME: '$(IMAGE_NAME):$(TAG)'
 
 stages:
-  - stage: Build
-    displayName: 'Build and Push Docker Image'
-    jobs:
-      - job: BuildAndPush
-        displayName: 'Build and Push Docker Image to ACR'
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          # Checkout do código do repositório
-          - task: Checkout@1
-            displayName: 'Checkout source code'
+- stage: BuildAndPush
+  displayName: "Build and Push Docker Image"
+  jobs:
+  - job: Build
+    displayName: "Build and Push Docker Image"
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: "UnyleyaAzureContainerRegistry"
+        scriptType: "bash"
+        scriptLocation: "inlineScript"
+        inlineScript: |
+          echo "Logging into Azure Container Registry"
+          az acr login --name unyleyaregistry
 
-          # Build da imagem Docker
-          - task: Docker@2
-            displayName: 'Build Docker Image'
-            inputs:
-              command: build
-              dockerfile: '$(Build.SourcesDirectory)/azure-vote/Dockerfile'
-              tags: |
-                $(IMAGE_NAME):$(TAG)
+          echo "Building the Docker image"
+          docker build -f '$(Build.SourcesDirectory)/azure-vote/Dockerfile' -t $FULL_IMAGE_NAME .
 
-          # Enviar imagem para o ACR
-          - script: |
-              echo "Logging into ACR..."
-              az acr login --name $(ACR_NAME)
-              
-              echo "Tagging Docker Image..."
-              docker tag $(IMAGE_NAME):$(TAG) $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(TAG)
-              
-              echo "Pushing Docker Image to ACR..."
-              docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(TAG)
-            displayName: 'Push Image to ACR'
+          echo "Pushing the Docker image $FULL_IMAGE_NAME"
+          docker push $FULL_IMAGE_NAME
+
+          echo "Docker image pushed: $FULL_IMAGE_NAME"
+
+          docker images
+
+    # Instalar o Helm
+    - task: HelmInstaller@1
+      displayName: 'Install Helm'
+      inputs:
+        version: '3.x'  # Especifica a versão do Helm a ser instalada
+
+    # Adicionar o repositório Helm e instalar o chart (caso necessário)
+    - script: |
+        echo "Adding Helm chart repository..."
+        helm repo add stable https://charts.helm.sh/stable
+        helm repo update
+
+      displayName: "Install Helm Chart"
+
+    - script: echo "Pipeline Build and Push completed successfully!"
+      displayName: "Completion Message"
